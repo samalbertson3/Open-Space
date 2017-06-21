@@ -1,33 +1,37 @@
 from math import *
 import csv
 
+#Longitudinal rotation matrix
 def lng_rot(lng):
     return [[cos(lng),-sin(lng),0],[sin(lng),cos(lng),0],[0,0,1]]
 
+#Latitudinal rotation matrix
 def lat_rot(lat):
     return [[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]] #Had to switch signs. Why?
 
 def calculate(r0,lng0,lat,v0,theta0,phi0,t):
-    #Extracts orbital elements from r,v vectors
+    #Extracts Keplerian orbital elements from heading data
+    #Assumes orbit around Kerbin4
+    #lng0, lat are input in rad
+    #theta0, phi0 are input in deg
+    #r0 is input in m
+    #v0 is input in m/s
     GM = 3.5316000*(10**12)
     r0 = r0 + 600000.
     theta = deg_to_rad(theta0)
     phi = deg_to_rad(phi0)
-    #lng = lng0
     lng = adj_lng(lng0,t)
     r = [r0*sin(lng)*cos(lat),-r0*cos(lng)*cos(lat),r0*sin(lat)]
     v = [v0*sin(theta)*cos(phi),-v0*sin(phi),v0*cos(theta)*cos(phi)]
-    v = mat_mult(lat_rot(lat),v)
-    v = mat_mult(lng_rot(lng),v)
+    v = mat_mult(lat_rot(lat),v) #latitude, then longitude rotations
+    v = mat_mult(lng_rot(lng),v) #order is important!
     h = cross(r,v)
     n = cross([0,0,1],h)
-    #e = mult(sub(mult(r,squ(v)-GM/r0),mult(v,dot(r,v))),1/GM)
     e = sub(mult(cross(v,h),1/GM), mult(r,1/r0))
     p = squ(h)/GM
     a = p/(1-abs_val(e)**2)
     i = acos(h[2]/abs_val(h))
-    meridian = [0,-1,0]
-    #meridian = mat_mult(lng_rot(lng),meridian)
+    meridian = [0,-1,0] #Meridian points in direction of 0 degrees longitude
     if n[0] < 0:
         omega = 2*pi-acos(dot(meridian,n)/(abs_val(n)))
     else:
@@ -36,34 +40,23 @@ def calculate(r0,lng0,lat,v0,theta0,phi0,t):
     nu = acos(dot(e,r)/(abs_val(e)*abs_val(r)))
     return a,e,rad_to_deg(i),rad_to_deg(omega),rad_to_deg(w),rad_to_deg(nu)
 
-def iterate(start,step,stop):
-    #Creates a number line vector from [start] to [stop] in step size [step]
-    out = [start]
-    if step > 0:
-        while out[-1] < stop:
-            out.append(out[-1]+step)
-    if step < 0:
-        while out[-1] > stop:
-            out.append(out[-1]-step)
-    return out
-
-
-
 def adj_lng(lng,time):
-    #for a ship at a given lng, find lng of that point at T=0
+    #Establishes a Kerbocentric reference frame at epoch UT=0
+    #for a ship at a given lng, find lng of that point at epoch
     out = (pi + lng + time/P*2*pi)%(2*pi) - pi
     #out = lng - 2*pi*((time/P)%P)
     return out
 
 def conv_time(Y,D,h,m,s):
+    #Changes Y/D/h/m/s time to seconds
     return s + 60*m + 3600*h + D*P + 9203545*Y
 
 def state_vectors(r0,lng0,lat,v0,theta0,phi0,t):
+    #Converts heading data to r,v state vectors in reference frame at epoch
     r0 = r0 + 600000.
     theta = deg_to_rad(theta0)
     phi = deg_to_rad(phi0)
-    lng = lng0
-    #lng = adj_lng(lng0,t)
+    lng = adj_lng(lng0,t)
     r = [r0*sin(lng)*cos(lat),-r0*cos(lng)*cos(lat),r0*sin(lat)]
     v = [v0*sin(theta)*cos(phi),-v0*sin(phi),v0*cos(theta)*cos(phi)]
     lat_rot = [[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]] #Had to switch signs. Why?
@@ -72,36 +65,16 @@ def state_vectors(r0,lng0,lat,v0,theta0,phi0,t):
     v = mat_mult(lng_rot,v)
     return r,v
 
-##def heading(a,e,i,omega,w,nu):
-##    e = abs_val(e)
-##    i = deg_to_rad(i)
-##    omega = deg_to_rad(omega)
-##    w = deg_to_rad(w)
-##    nu = deg_to_rad(nu)
-##    GM = 3.5316000*(10**12)
-##    r = a*(1-e**2)/(1+e*cos(nu)) - 600000.
-##    r_prime = sqrt(GM*a)/(a*(1-e**2))*e*sin(nu)
-##    rt_prime = sqrt(GM*a)*(1+e*cos(nu))/(a*(1-e**2))
-##    v = sqrt((r_prime)**2+(rt_prime)**2)
-##    phi = atan(r_prime/rt_prime)
-##    theta = i*cos(nu+w)
-##    lng = (omega + nu + w)
-##    lat = (nu+w)*sin(i)
-##    if lng > pi:
-##        lng = -pi + (lng-pi)
-##    if lat > pi:
-##        lat = -pi + (lat-pi)
-##    return [r,rad_to_deg(lng),rad_to_deg(lat),v,rad_to_deg(theta),rad_to_deg(phi)]
-
 def heading(a,e,i,omega,w,nu,t):
+    #Converts Keplerian orbital elements to heading
     e = abs_val(e)
     i = deg_to_rad(i)
     omega = deg_to_rad(omega)
     w = deg_to_rad(w)
     nu = deg_to_rad(nu)
 
-    #switched from Rx(i) to Ry(-i); why does this work?
-    r_hat = mat_mult(Rz(omega),mat_mult(Ry(-i),mat_mult(Rz(nu+w),[0,-1,0])))
+    #switched from Rx(i) to Ry(i); why does this work?
+    r_hat = mat_mult(Rz(omega),mat_mult(Ry(i),mat_mult(Rz(nu+w),[0,-1,0])))
     r = a*(1-e**2)/(1+e*cos(nu))
     r = r - 600000.
 
@@ -134,35 +107,19 @@ def Ry(t):
 def Rz(t):
     return [[cos(t),-sin(t),0],[sin(t),cos(t),0],[0,0,1]]
 
-##def state_vectors2(a,e,i,omega,w,nu):
-##    i = deg_to_rad(i)
-##    omega = deg_to_rad(omega)
-##    w = deg_to_rad(w)
-##    nu = deg_to_rad(nu)
-##    e = abs_val(e)
-##    r0 = [cos(i)*sin(nu+w),-cos(i)*cos(w+nu),sin(i)*sin(w+nu)]
-##    #M = [[cos(omega),-sin(omega),0],[sin(omega),cos(omega),0],[0,0,1]]
-##    M = [[1,0,0],[0,1,0],[0,0,1]]
-##    r = mult(mat_mult(M,r0),a*(1-e**2)/(1+e*cos(nu)))
-##    return r
-    
-
-ap_ref = 600000.+589431.
-pe_ref = 600000.+94065.
-a_ref = (ap_ref+pe_ref)/2.
-e_ref = ap_ref/a_ref-1
-p_ref = a_ref*(1-e_ref**2)
-
-r_err = 1
-lng_err = 0.01
-lat_err = 0.01
-v_err = 0.1
-theta_err = 1
-phi_err = 5
+#Measurement errors in heading
+r_err = 1 #m
+lng_err = 0.01 #rad
+lat_err = 0.01 #rad
+v_err = 0.1 #m/s
+theta_err = 1 #deg
+phi_err = 5 #deg
 
 #Kerbin stats
 P = 5*3600 + 59*60 + 9.4
 GM = 3.5316000*(10**12)
+
+#Sample heading data
 #386339,-2.917,0.605,1846.9,113,15,1088727
 #545765,-2.865,0.25 ,1553.9,129,7,1089156
 #589432,-2.612,-0.051,1479.3,131,0,1089522
