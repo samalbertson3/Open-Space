@@ -47,3 +47,13 @@ def mat_mult(M,v):
 def mean(mat):
     return sum(mat)/len(mat)
 
+def iterate(start,step,stop):
+    #Creates a number line vector from [start] to [stop] in step size [step]
+    out = [start]
+    if step > 0:
+        while out[-1] < stop:
+            out.append(out[-1]+step)
+    if step < 0:
+        while out[-1] > stop:
+            out.append(out[-1]-step)
+    return out
