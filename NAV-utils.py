@@ -73,8 +73,8 @@ def heading(a,e,i,omega,w,nu,t):
     w = deg_to_rad(w)
     nu = deg_to_rad(nu)
 
-    #switched from Rx(i) to Ry(i); why does this work?
-    r_hat = mat_mult(Rz(omega),mat_mult(Ry(i),mat_mult(Rz(nu+w),[0,-1,0])))
+    #switched from Rx(i) to Ry(-i); why does this work?
+    r_hat = mat_mult(Rz(omega),mat_mult(Ry(-i),mat_mult(Rz(nu+w),[0,-1,0])))
     r = a*(1-e**2)/(1+e*cos(nu))
     r = r - 600000.
 
