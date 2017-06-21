@@ -92,6 +92,7 @@ def test3(r0,lng0,lat0,v0,theta0,phi0,t):
     return phi,e_phi
 
 def test4():
+    #Runs measured heading data through calculate() for orbital elements, then converts the calculated elements into calculated heading() data, and compares the results    
     rs = []
     lngs = []
     lats = []
