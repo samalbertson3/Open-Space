@@ -49,8 +49,8 @@ def orbitalElement_navballTransform(a,e,i,omega,w,nu):
     P=np.array[p_i(omega,w,i),p_j(omega,w,i),p_k(w,i)]         #collect variables
     Q=np.array[q_i(omega,w,i),q_j(omega,w,i),q_k(w,i)]
     radius = p/(1+e*np.cos(nu))
-    radius_vector = radius*np.cos(nu*P)+radius*np.sin(radius*Q)      #unsure if this is taking the correct trig functions of these equations
-    velocity_vector = np.sqrt(GM_kerbin/p)*(-np.sin(nu*P)+(e+np.cos(nu))*Q)  
+    radius_vector = radius*np.cos(nu)*P+radius*np.sin(nu)*Q      #unsure if this is taking the correct trig functions of these equations
+    velocity_vector = np.sqrt(GM_kerbin/p)*(-np.sin(nu)*P+(e+np.cos(nu))*Q)  
 
     
     return radius_vector,velocity_vector
