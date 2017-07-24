@@ -63,7 +63,7 @@ def state_vectors(r0,lng0,lat,v0,theta0,phi0,t):
     v = lng_rot(lng)*v #order is important!
     return r,v
 
-def heading(a,e,i,omega,w,nu,t):
+def navball(a,e,i,omega,w,nu,t):
     #Converts Keplerian orbital elements to heading
     i = deg_to_rad(i)
     omega = deg_to_rad(omega)
