@@ -1,4 +1,5 @@
 from math import *
+import numpy as np
 import csv
 
 #Longitudinal rotation matrix
@@ -9,7 +10,7 @@ def lng_rot(lng):
 def lat_rot(lat):
     return [[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]] #Had to switch signs. Why? 
 
-def orbitalElementTransform(r0,lng0,lat,v0,theta0,phi0,t):
+def navball_orbitalElementTransform(r0,lng0,lat,v0,theta0,phi0,t):
     #Extracts Keplerian orbital elements from navball data
     #Assumes orbit around Kerbin
     #lng0, lat are input in rad
@@ -38,7 +39,48 @@ def orbitalElementTransform(r0,lng0,lat,v0,theta0,phi0,t):
     w = acos(dot(n,e)/(abs_val(n)*abs_val(e)))
     nu = acos(dot(e,r)/(abs_val(e)*abs_val(r)))
     return a,e,rad_to_deg(i),rad_to_deg(omega),rad_to_deg(w),rad_to_deg(nu)
+    
+def orbitalElement_navballTransform(a,e,i,omega,w,nu):
+    #should find r and v vectors based on data produced from navball_orbitalElement transform
+    omega=np.radians(omega)
+    w=np.radians(w)
+    nu=np.radians(nu)       #assuming that nu would be entered in degrees as that is what its returned in from the inverse function of this one
+    p=a*(1-np.abs(e)**2)
+    P=np.array[p_i(omega,w,i),p_j(omega,w,i),p_k(w,i)]         #collect variables
+    Q=np.array[q_i(omega,w,i),q_j(omega,w,i),q_k(w,i)]
+    radius = p/(1+e*np.cos(nu))
+    radius_vector = radius*np.cos(nu*P)+radius*np.sin(radius*Q)      #unsure if this is taking the correct trig functions of these equations
+    velocity_vector = np.sqrt(GM_kerbin/p)*(-np.sin(nu*P)+(e+np.cos(nu))*Q)  
 
+    
+    return radius_vector,velocity_vector
+    
+    #equations for finding components of unit vectors in perifocal coordinate system
+    #source: https://en.wikipedia.org/wiki/Perifocal_coordinate_system
+def p_i(omega,w,i):
+    #assuming rad
+    return np.cos(omega)*np.cos(w)-np.sin(omega)*np.cos(i)*np.sin(w)
+
+def p_j(omega,w,i):
+    #assuming rad
+    return np.sin(omega)*np.cos(w)+np.cos(omega)*np.cos(i)*np.sin(w)
+
+def p_k(w,i):
+    #assuming rad
+    return np.sin(i)*np.sin(w)
+    
+def q_i(omega,w,i):
+    #assuming rad
+    return -np.cos(omega)*np.sin(w)-np.sin(omega)*np.cos(i)*np.cos(w)
+    
+def q_j(omega,w,i):
+    #assuming rad
+    return -np.sin(omega)*np.sin(w)+np.cos(omega)*np.cos(i)*np.cos(w)
+    
+def q_k(w,i):
+    #assuming rad
+    return np.sin(i)*np.cos(w)
+    
 def adj_lng(lng,time):
     #Establishes a Kerbocentric reference frame at epoch UT=0
     #for a ship at a given lng, find lng of that point at epoch
