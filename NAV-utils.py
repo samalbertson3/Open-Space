@@ -7,17 +7,16 @@ def lng_rot(lng):
 
 #Latitudinal rotation matrix
 def lat_rot(lat):
-    return [[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]] #Had to switch signs. Why?
+    return [[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]] #Had to switch signs. Why? 
 
-def calculate(r0,lng0,lat,v0,theta0,phi0,t):
-    #Extracts Keplerian orbital elements from heading data
-    #Assumes orbit around Kerbin4
+def orbitalElementTransform(r0,lng0,lat,v0,theta0,phi0,t):
+    #Extracts Keplerian orbital elements from navball data
+    #Assumes orbit around Kerbin
     #lng0, lat are input in rad
     #theta0, phi0 are input in deg
     #r0 is input in m
     #v0 is input in m/s
-    GM = 3.5316000*(10**12)
-    r0 = r0 + 600000.
+    r0 = r0 + radius_Kerbin
     theta = deg_to_rad(theta0)
     phi = deg_to_rad(phi0)
     lng = adj_lng(lng0,t)
@@ -27,8 +26,8 @@ def calculate(r0,lng0,lat,v0,theta0,phi0,t):
     v = mat_mult(lng_rot(lng),v) #order is important!
     h = cross(r,v)
     n = cross([0,0,1],h)
-    e = sub(mult(cross(v,h),1/GM), mult(r,1/r0))
-    p = squ(h)/GM
+    e = sub(mult(cross(v,h),1/GM_kerbin), mult(r,1/r0))
+    p = squ(h)/GM_kerbin
     a = p/(1-abs_val(e)**2)
     i = acos(h[2]/abs_val(h))
     meridian = [0,-1,0] #Meridian points in direction of 0 degrees longitude
@@ -52,8 +51,8 @@ def conv_time(Y,D,h,m,s):
     return s + 60*m + 3600*h + D*P + 9203545*Y
 
 def state_vectors(r0,lng0,lat,v0,theta0,phi0,t):
-    #Converts heading data to r,v state vectors in reference frame at epoch
-    r0 = r0 + 600000.
+    #Converts navball data to r,v state vectors in reference frame at epoch
+    r0 = r0 + radius_Kerbin
     theta = deg_to_rad(theta0)
     phi = deg_to_rad(phi0)
     lng = adj_lng(lng0,t)
@@ -66,7 +65,7 @@ def state_vectors(r0,lng0,lat,v0,theta0,phi0,t):
     return r,v
 
 def heading(a,e,i,omega,w,nu,t):
-    #Converts Keplerian orbital elements to heading
+    #Converts Keplerian orbital elements to navball data
     e = abs_val(e)
     i = deg_to_rad(i)
     omega = deg_to_rad(omega)
@@ -76,7 +75,7 @@ def heading(a,e,i,omega,w,nu,t):
     #switched from Rx(i) to Ry(-i); why does this work?
     r_hat = mat_mult(Rz(omega),mat_mult(Ry(-i),mat_mult(Rz(nu+w),[0,-1,0])))
     r = a*(1-e**2)/(1+e*cos(nu))
-    r = r - 600000.
+    r = r - radius_Kerbin
 
     lat = acos(dot([r_hat[0],r_hat[1],0],r_hat)/(abs_val([r_hat[0],r_hat[1],0])*abs_val(r_hat)))
     if r_hat[2] < 0:
@@ -88,8 +87,8 @@ def heading(a,e,i,omega,w,nu,t):
     
 
     theta_hat = mat_mult(Rz(omega),mat_mult(Ry(-i),mat_mult(Rz(nu+w),[1,0,0])))
-    r_prime = sqrt(GM*a)/(a*(1-e**2))*e*sin(nu)
-    rt_prime = sqrt(GM*a)*(1+e*cos(nu))/(a*(1-e**2))
+    r_prime = sqrt(GM_kerbin*a)/(a*(1-e**2))*e*sin(nu)
+    rt_prime = sqrt(GM_kerbin*a)*(1+e*cos(nu))/(a*(1-e**2))
     print 'r\' = ', r_prime
     print 'rv\' = ', rt_prime
     v = sqrt(r_prime**2 + rt_prime**2) ####
@@ -107,7 +106,7 @@ def Ry(t):
 def Rz(t):
     return [[cos(t),-sin(t),0],[sin(t),cos(t),0],[0,0,1]]
 
-#Measurement errors in heading
+#Measurement errors in navball readings
 r_err = 1 #m
 lng_err = 0.01 #rad
 lat_err = 0.01 #rad
@@ -115,11 +114,12 @@ v_err = 0.1 #m/s
 theta_err = 1 #deg
 phi_err = 5 #deg
 
-#Kerbin stats
-P = 5*3600 + 59*60 + 9.4
-GM = 3.5316000*(10**12)
+#Kerbin stats					#need to add Mun stats
+P = 5*3600 + 59*60 + 9.4		#sidereal rotation period in seconds
+GM_kerbin = 3.5316000*(10**12) 	#m^3/s^2, gravitational parameter of kerbin
+radius_Kerbin = 600000.			#meters, radius of Kerbin
 
-#Sample heading data
+#Sample navball data
 #386339,-2.917,0.605,1846.9,113,15,1088727
 #545765,-2.865,0.25 ,1553.9,129,7,1089156
 #589432,-2.612,-0.051,1479.3,131,0,1089522
