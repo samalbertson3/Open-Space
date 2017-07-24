@@ -1,17 +1,17 @@
 from math import *
-import csv
+import numpy
 
 #Longitudinal rotation matrix
 def lng_rot(lng):
-    return [[cos(lng),-sin(lng),0],[sin(lng),cos(lng),0],[0,0,1]]
+    return numpy.matrix([[cos(lng),-sin(lng),0],[sin(lng),cos(lng),0],[0,0,1]])
 
 #Latitudinal rotation matrix
 def lat_rot(lat):
-    return [[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]] #Had to switch signs. Why?
+    return numpy.matrix([[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]]) #Had to switch signs. Why?)
 
 def calculate(r0,lng0,lat,v0,theta0,phi0,t):
     #Extracts Keplerian orbital elements from heading data
-    #Assumes orbit around Kerbin4
+    #Assumes orbit around Kerbin
     #lng0, lat are input in rad
     #theta0, phi0 are input in deg
     #r0 is input in m
@@ -21,23 +21,23 @@ def calculate(r0,lng0,lat,v0,theta0,phi0,t):
     theta = deg_to_rad(theta0)
     phi = deg_to_rad(phi0)
     lng = adj_lng(lng0,t)
-    r = [r0*sin(lng)*cos(lat),-r0*cos(lng)*cos(lat),r0*sin(lat)]
-    v = [v0*sin(theta)*cos(phi),-v0*sin(phi),v0*cos(theta)*cos(phi)]
-    v = mat_mult(lat_rot(lat),v) #latitude, then longitude rotations
-    v = mat_mult(lng_rot(lng),v) #order is important!
-    h = cross(r,v)
-    n = cross([0,0,1],h)
-    e = sub(mult(cross(v,h),1/GM), mult(r,1/r0))
-    p = squ(h)/GM
-    a = p/(1-abs_val(e)**2)
-    i = acos(h[2]/abs_val(h))
-    meridian = [0,-1,0] #Meridian points in direction of 0 degrees longitude
-    if n[0] < 0:
-        omega = 2*pi-acos(dot(meridian,n)/(abs_val(n)))
+    r = numpy.matrix([r0*sin(lng)*cos(lat),-r0*cos(lng)*cos(lat),r0*sin(lat)])
+    v = numpy.matrix([v0*sin(theta)*cos(phi),-v0*sin(phi),v0*cos(theta)*cos(phi)])
+    v = lat_rot(lat)*numpy.transpose(v) #latitude, then longitude rotations
+    v = lng_rot(lng)*v #order is important!
+    h = numpy.cross(r,numpy.transpose(v))
+    n = numpy.cross(numpy.matrix([0,00,1]),h)
+    e = numpy.cross(numpy.transpose(v),h)/GM - r/numpy.linalg.norm(r)
+    p = numpy.linalg.norm(h*numpy.transpose(h))/GM
+    a = p/(1-numpy.linalg.norm(e)**2)
+    i = acos(h[0,2]/numpy.linalg.norm(h))
+    meridian = numpy.matrix([0,-1,0]) #Meridian points in direction of 0 degrees longitude
+    if n[0,0] < 0:
+        omega = 2*pi-acos(meridian*numpy.transpose(n)/(numpy.linalg.norm(n)))
     else:
-        omega = acos(dot(meridian,n)/(abs_val(n)))
-    w = acos(dot(n,e)/(abs_val(n)*abs_val(e)))
-    nu = acos(dot(e,r)/(abs_val(e)*abs_val(r)))
+        omega = acos(meridian*numpy.transpose(n)/(numpy.linalg.norm(n)))
+    w = acos(n*numpy.transpose(e)/(numpy.linalg.norm(n)*numpy.linalg.norm(e)))
+    nu = acos(e*numpy.transpose(r)/(numpy.linalg.norm(e)*numpy.linalg.norm(r)))
     return a,e,rad_to_deg(i),rad_to_deg(omega),rad_to_deg(w),rad_to_deg(nu)
 
 def adj_lng(lng,time):
@@ -57,55 +57,60 @@ def state_vectors(r0,lng0,lat,v0,theta0,phi0,t):
     theta = deg_to_rad(theta0)
     phi = deg_to_rad(phi0)
     lng = adj_lng(lng0,t)
-    r = [r0*sin(lng)*cos(lat),-r0*cos(lng)*cos(lat),r0*sin(lat)]
-    v = [v0*sin(theta)*cos(phi),-v0*sin(phi),v0*cos(theta)*cos(phi)]
-    lat_rot = [[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]] #Had to switch signs. Why?
-    lng_rot = [[cos(lng),-sin(lng),0],[sin(lng),cos(lng),0],[0,0,1]]
-    v = mat_mult(lat_rot,v)
-    v = mat_mult(lng_rot,v)
+    r = numpy.matrix([r0*sin(lng)*cos(lat),-r0*cos(lng)*cos(lat),r0*sin(lat)])
+    v = numpy.matrix([v0*sin(theta)*cos(phi),-v0*sin(phi),v0*cos(theta)*cos(phi)])
+    v = lat_rot(lat)*numpy.transpose(v) #latitude, then longitude rotations
+    v = lng_rot(lng)*v #order is important!
     return r,v
 
 def heading(a,e,i,omega,w,nu,t):
     #Converts Keplerian orbital elements to heading
-    e = abs_val(e)
     i = deg_to_rad(i)
     omega = deg_to_rad(omega)
     w = deg_to_rad(w)
     nu = deg_to_rad(nu)
-
-    #switched from Rx(i) to Ry(-i); why does this work?
-    r_hat = mat_mult(Rz(omega),mat_mult(Ry(-i),mat_mult(Rz(nu+w),[0,-1,0])))
+    m = numpy.transpose(numpy.matrix([0,-1,0]))
+    r_hat = Rz(omega)*Ry(-i)*Rz(nu+w)*m
     r = a*(1-e**2)/(1+e*cos(nu))
     r = r - 600000.
-
-    lat = acos(dot([r_hat[0],r_hat[1],0],r_hat)/(abs_val([r_hat[0],r_hat[1],0])*abs_val(r_hat)))
-    if r_hat[2] < 0:
+    lat = acos(numpy.matrix([r_hat[0,0],r_hat[1,0],0])*r_hat/(numpy.linalg.norm([r_hat[0,0],r_hat[1,0],0])*numpy.linalg.norm(r_hat)))
+    if r_hat[2,0] < 0:
         lat = -lat
-    lng = acos(dot([0,-1,0],[r_hat[0],r_hat[1],0])/(abs_val([r_hat[0],r_hat[1],0])))
-    if r_hat[0] < 0:
+    lng = acos(numpy.transpose(m)*numpy.transpose(numpy.matrix([r_hat[0,0],r_hat[1,0],0]))/(numpy.linalg.norm([r_hat[0,0],r_hat[1,0],0])))
+    if r_hat[0,0] < 0:
         lng = -lng
     lng = adj_lng(lng,-t)
     
 
-    theta_hat = mat_mult(Rz(omega),mat_mult(Ry(-i),mat_mult(Rz(nu+w),[1,0,0])))
+    theta_hat = Rz(omega)*Ry(-i)*Rz(nu+w)*numpy.transpose(numpy.matrix([1,0,0]))
     r_prime = sqrt(GM*a)/(a*(1-e**2))*e*sin(nu)
     rt_prime = sqrt(GM*a)*(1+e*cos(nu))/(a*(1-e**2))
     print 'r\' = ', r_prime
     print 'rv\' = ', rt_prime
     v = sqrt(r_prime**2 + rt_prime**2) ####
 
-    theta = atan(theta_hat[0]/theta_hat[1]) #####
+    theta = atan(theta_hat[0,0]/theta_hat[1,0]) #####
     phi = atan(e*sin(nu)/(1+e*cos(nu)))
     return r,lng,lat,v,rad_to_deg(theta),rad_to_deg(phi)
 
 def Rx(t):
-    return [[1,0,0],[0,cos(t),-sin(t)],[0,sin(t),cos(t)]]
+    #Rotate around x-axis
+    return numpy.matrix([[1,0,0],[0,cos(t),-sin(t)],[0,sin(t),cos(t)]])
 
 def Ry(t):
-    return [[cos(t),0,sin(t)],[0,1,0],[-sin(t),0,cos(t)]]
+    #Rotate around y-axis
+    return numpy.matrix([[cos(t),0,sin(t)],[0,1,0],[-sin(t),0,cos(t)]])
 
 def Rz(t):
-    return [[cos(t),-sin(t),0],[sin(t),cos(t),0],[0,0,1]]
+    #Rotate around z-axis
+    return numpy.matrix([[cos(t),-sin(t),0],[sin(t),cos(t),0],[0,0,1]])
+
+def deg_to_rad(deg):
+    rad = pi/180.*deg
+    return rad
+def rad_to_deg(rad):
+    deg = 180./pi*rad
+    return deg
 
 #Measurement errors in heading
 r_err = 1 #m
@@ -128,4 +133,3 @@ GM = 3.5316000*(10**12)
 #94131,0.104,0.071,2534.9,49,0,1091058
 #225702,1.266,0.702,2191.8,82,13,1091463
 #381068,2.006,0.613,1857.3,112,15,1091765
-
