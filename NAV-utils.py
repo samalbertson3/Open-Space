@@ -1,5 +1,6 @@
 from math import *
-import numpy
+import numpy as np
+import csv
 
 #Longitudinal rotation matrix
 def lng_rot(lng):
@@ -9,7 +10,7 @@ def lng_rot(lng):
 def lat_rot(lat):
     return numpy.matrix([[1,0,0],[0,cos(-lat),-sin(-lat)],[0,sin(-lat),cos(-lat)]]) #Had to switch signs. Why?)
 
-def calculate(r0,lng0,lat,v0,theta0,phi0,t):
+def navball_orbitalElementTransform(r0,lng0,lat,v0,theta0,phi0,t):
     #Extracts Keplerian orbital elements from heading data
     #Assumes orbit around Kerbin
     #lng0, lat are input in rad
@@ -40,6 +41,32 @@ def calculate(r0,lng0,lat,v0,theta0,phi0,t):
     nu = acos(e*numpy.transpose(r)/(numpy.linalg.norm(e)*numpy.linalg.norm(r)))
     return a,e,rad_to_deg(i),rad_to_deg(omega),rad_to_deg(w),rad_to_deg(nu)
 
+    #equations for finding components of unit vectors in perifocal coordinate system
+    #source: https://en.wikipedia.org/wiki/Perifocal_coordinate_system
+def p_i(omega,w,i):
+    #assuming rad
+    return np.cos(omega)*np.cos(w)-np.sin(omega)*np.cos(i)*np.sin(w)
+
+def p_j(omega,w,i):
+    #assuming rad
+    return np.sin(omega)*np.cos(w)+np.cos(omega)*np.cos(i)*np.sin(w)
+
+def p_k(w,i):
+    #assuming rad
+    return np.sin(i)*np.sin(w)
+    
+def q_i(omega,w,i):
+    #assuming rad
+    return -np.cos(omega)*np.sin(w)-np.sin(omega)*np.cos(i)*np.cos(w)
+    
+def q_j(omega,w,i):
+    #assuming rad
+    return -np.sin(omega)*np.sin(w)+np.cos(omega)*np.cos(i)*np.cos(w)
+    
+def q_k(w,i):
+    #assuming rad
+    return np.sin(i)*np.cos(w)  
+  
 def adj_lng(lng,time):
     #Establishes a Kerbocentric reference frame at epoch UT=0
     #for a ship at a given lng, find lng of that point at epoch
